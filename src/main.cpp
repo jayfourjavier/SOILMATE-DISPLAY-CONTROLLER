@@ -176,15 +176,6 @@ void drawEraseBtn()
   tft.print("ERASE ALL");
 }
 
-void drawRecalibrateBtn()
-{
-  tft.fillRect(0, 0, 100, 40, ILI9341_RED);
-  tft.setCursor(10, 10);
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setTextSize(1);
-  tft.print("RECALIBRATE");
-}
-
 void setup()
 {
   Serial.begin(115200);
@@ -206,7 +197,6 @@ void setup()
   Serial.printf("EEPROM initialized with size: %d bytes\n", EEPROM_SIZE);
 
   drawEraseBtn();
-  drawRecalibrateBtn();
 
   // Try to load existing calibration
   if (!loadCalibrationFromEEPROM())
@@ -227,7 +217,6 @@ void setup()
   }
 
   drawEraseBtn();
-  drawRecalibrateBtn();
 
   Serial.println("Setup complete, ready for touch input");
 }
@@ -256,16 +245,12 @@ void processCommand(int cmd)
   switch (cmd)
   {
   case 1:
-    Serial.println("Executing command 1");
+    Serial.println("Recalibration command received");
+    calibrateScreen();
+    drawEraseBtn();
     break;
   case 2:
     Serial.println("Executing command 2");
-    break;
-  case 99:
-    Serial.println("Forcing recalibration");
-    calibrateScreen();
-    drawEraseBtn();
-    drawRecalibrateBtn();
     break;
   default:
     break;
@@ -299,18 +284,6 @@ void processTouch()
   {
     tft.fillScreen(ILI9341_BLACK);
     drawEraseBtn();
-    drawRecalibrateBtn();
-    delay(200);
-    return;
-  }
-
-  // Recalibrate button
-  if (sx >= 0 && sx <= 100 &&
-      sy >= 0 && sy <= 40)
-  {
-    calibrateScreen();
-    drawEraseBtn();
-    drawRecalibrateBtn();
     delay(200);
     return;
   }
