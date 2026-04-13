@@ -316,5 +316,7 @@ void loop()
     command = -1;
   }
 
+  // return;
+
   processTouch();
 }
