@@ -1,0 +1,91 @@
+// ESP32 Modbus RTU reader for 7‑in‑1 NPK sensor (RS485 with DE/RE control)
+
+#include <Arduino.h>
+
+// Define UART pins for Serial2 (TX=16, RX=17) – can be changed
+#define RXD2 17
+#define TXD2 16
+
+// RS485 direction control pin (DE & RE tied together)
+#define RS485_CTRL 33 // any free GPIO
+
+// Modbus request frame (8 bytes) – verify CRC! The one below may need correction.
+unsigned char byteRequest[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x01, 0x84, 0x0A};
+unsigned char byteResponse[19] = {};
+
+void setup()
+{
+    Serial.begin(115200);                        // USB debug
+    Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2); // Modbus baud rate 9600
+
+    pinMode(RS485_CTRL, OUTPUT);
+    digitalWrite(RS485_CTRL, LOW); // start in receive mode
+
+    Serial.println("ESP32 NPK Sensor Reader (RS485 with DE/RE)");
+}
+
+void readAndPrintNPK()
+{
+    // 1. Switch to transmit mode
+    digitalWrite(RS485_CTRL, HIGH);
+    delayMicroseconds(100); // short settling time
+
+    // 2. Send request
+    Serial2.write(byteRequest, sizeof(byteRequest));
+    Serial2.flush(); // wait for transmission to complete
+
+    // 3. Back to receive mode
+    digitalWrite(RS485_CTRL, LOW);
+
+    // 4. Wait for response (sensor may need up to 500ms)
+    delay(500);
+
+    // 5. Read response (19 bytes expected)
+    if (Serial2.available() >= sizeof(byteResponse))
+    {
+        Serial2.readBytes(byteResponse, sizeof(byteResponse));
+
+        // Parse registers (each 2 bytes, high byte first)
+        unsigned int soilHumidity = (byteResponse[3] << 8) | byteResponse[4];
+        unsigned int soilTemperature = (byteResponse[5] << 8) | byteResponse[6];
+        unsigned int soilConductivity = (byteResponse[7] << 8) | byteResponse[8];
+        unsigned int soilPH = (byteResponse[9] << 8) | byteResponse[10];
+        unsigned int nitrogen = (byteResponse[11] << 8) | byteResponse[12];
+        unsigned int phosphorus = (byteResponse[13] << 8) | byteResponse[14];
+        unsigned int potassium = (byteResponse[15] << 8) | byteResponse[16];
+
+        // Print to USB Serial
+        Serial.println("---- Soil Sensor Readings ----");
+        Serial.print("Moisture: ");
+        Serial.print(soilHumidity / 10.0);
+        Serial.println(" %");
+        Serial.print("Temperature: ");
+        Serial.print(soilTemperature / 10.0);
+        Serial.println(" °C");
+        Serial.print("Conductivity: ");
+        Serial.print(soilConductivity);
+        Serial.println(" us/cm");
+        Serial.print("pH: ");
+        Serial.println(soilPH / 10.0);
+        Serial.print("Nitrogen: ");
+        Serial.print(nitrogen);
+        Serial.println(" mg/kg");
+        Serial.print("Phosphorus: ");
+        Serial.print(phosphorus);
+        Serial.println(" mg/kg");
+        Serial.print("Potassium: ");
+        Serial.print(potassium);
+        Serial.println(" mg/kg");
+        Serial.println("--------------------------------\n");
+    }
+    else
+    {
+        Serial.println("No response from NPK sensor.");
+    }
+}
+
+void loop()
+{
+    readAndPrintNPK();
+    delay(2000); // 2 seconds between reads (protocol requires ≥1000ms)
+}
